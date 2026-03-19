@@ -34,8 +34,7 @@ for (
         baseUrl={
           document
             .querySelectorAll(".lowcoder-module-container")
-            [i]?.querySelector(".locoder-backend-url")?.value ||
-          "https://api-service.lowcoder.cloud"
+            [i]?.querySelector(".locoder-backend-url")?.value 
         }
         webUrl={
           document

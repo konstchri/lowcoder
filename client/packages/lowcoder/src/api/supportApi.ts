@@ -52,7 +52,6 @@ const getAxiosInstance = (clientSecret?: string) => {
   };
 
   const apiRequestConfig: AxiosRequestConfig = {
-    baseURL: "https://api-service.lowcoder.cloud/api/flow",
     headers,
   };
 
