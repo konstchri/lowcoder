@@ -30,6 +30,7 @@ import {
 } from "lowcoder-design";
 import { trans } from "i18n";
 import dayjs from "dayjs";
+import { useEditorLayoutStore } from "pages/editor/editorLayoutStore";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -57,7 +58,6 @@ import { HeaderStartDropdown } from "./headerStartDropdown";
 import { AppPermissionDialog } from "../../components/PermissionDialog/AppPermissionDialog";
 import { getBrandingConfig } from "../../redux/selectors/configSelectors";
 import { messageInstance } from "lowcoder-design/src/components/GlobalInstances";
-import { EditorContext } from "../../comps/editorState";
 import Tooltip from "antd/es/tooltip";
 import { LockOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import UserApi from "@lowcoder-ee/api/userApi";
@@ -364,19 +364,16 @@ export type ToggleEditorModeStatus = (
 ) => void;
 
 type HeaderProps = {
-  panelStatus: PanelStatus;
-  togglePanel: TogglePanel;
   editorModeStatus: EditorModeStatus;
   toggleEditorModeStatus: ToggleEditorModeStatus;
 };
 
 // header in editor page
 export default function Header(props: HeaderProps) {
-  const editorState = useContext(EditorContext);
   const { blockEditing, fetchApplication } = useContext(ExternalEditorContext);
-  const { togglePanel } = props;
   const { toggleEditorModeStatus } = props;
-  const { left, bottom, right } = props.panelStatus;
+  const togglePanel = useEditorLayoutStore((state) => state.togglePanel);
+  const { left, bottom, right } = useEditorLayoutStore((state) => state.panelStatus);
   const user = useSelector(getUser);
   const application = useSelector(currentApplication);
   const isPublicApp = useSelector(isPublicApplication);
@@ -432,7 +429,6 @@ export default function Header(props: HeaderProps) {
     target: { value },
   }: RadioChangeEvent) => {
     toggleEditorModeStatus(value);
-    editorState.setEditorModeStatus(value);
   };
 
   const headerStart = (
@@ -692,19 +688,21 @@ export default function Header(props: HeaderProps) {
 }
 
 // header in manager page
-export function AppHeader() {
+export function AppHeader({ showBrandName = false }: { showBrandName?: boolean }) {
   const user = useSelector(getUser);
   const brandingSettings = useSelector(getBrandingSetting);
 
   const headerStart = (
-    <StyledLink onClick={() => history.push(ALL_APPLICATIONS_URL)}>
+    <StyledLink href={ALL_APPLICATIONS_URL} aria-label={trans("home.home")} onClick={(event) => { event.preventDefault(); history.push(ALL_APPLICATIONS_URL); }}>
       {/* {REACT_APP_LOWCODER_SHOW_BRAND === 'true' ?  REACT_APP_LOWCODER_CUSTOM_LOGO !== "" ? <img src={REACT_APP_LOWCODER_CUSTOM_LOGO}  height={28} alt="logo" /> :<LogoWithName branding={!user.orgDev} /> : <LogoHome />} */}
       { brandingSettings?.config_set?.logo
         ? (
           Boolean(brandingSettings?.orgId)
           ? <BrandLogo src={buildMaterialPreviewURL(brandingSettings?.config_set?.logo)} />
           : <BrandLogo src={brandingSettings?.config_set?.logo} />
-        ) : <LogoHome />
+        ) : showBrandName
+          ? <span className="admin-brand-name" style={{ display: "flex", alignItems: "center", gap: 10, color: "#d2a5ee", fontSize: 20, fontWeight: 500 }}><span className="admin-brand-mark"><Logo /></span>Lowcoder</span>
+          : <LogoHome />
       }
     </StyledLink>
   );

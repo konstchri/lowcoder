@@ -1,6 +1,6 @@
 # Modules
 
-One of the most **powerful concepts of Lowcoder** is **Modules**. Lowcoder Modules are Applications, that can get **included and repeated** in other Applications. You can insert a module into an app or other modules (referred to as _external apps_ in the rest of this document) and it **functions just like a single component**. Also, Modules can get [**integrated/embedded natively in other Web Applications**](../../publish-apps/embedd-an-app/)**!**
+One of the most **powerful concepts of Lowcoder** is **Modules**. Lowcoder Modules are Applications, that can get **included and repeated** in other Applications. You can insert a module into an app or other modules (referred to as _external apps_ in the rest of this document) and it **functions just like a single component**. Also, Modules can get [**integrated/embedded natively in other Web Applications**](../../publish-apps/embed-an-app/)**!**
 
 When building an app, you want to reuse a bundle of components and queries across different apps. Imagine a User-Profile Card. Profile-Image, Name, Contacts. If you create these Elements inside of a Module, you can integrate this in all other Apps as it would be a single component.
 
@@ -95,7 +95,7 @@ In the **Settings** tab, click **+** **Add** to create a new Module Method. Clic
 <figure><img src="../../.gitbook/assets/App Editor  Module Methods.png" alt=""><figcaption><p>From an App, one can call Methods of a embedded Module.</p></figcaption></figure>
 
 {% hint style="warning" %}
-When creating a Method for a Module, you cannot create input parameters for the Method and can only reference parameters within the scope of the current Module.
+Module methods can define named parameters and defaults. When calling a method from the native SDK, pass arguments in the configured order with `instance.invokeMethod(methodName, args)`. This call returns no result or completion promise; expose results through module outputs or events. See the [SDK method reference](https://sdk.lowcoder.cloud/reference.html#methods).
 {% endhint %}
 
 #### Call a Method
@@ -133,6 +133,10 @@ When an app uses a module, you can configure how the current app reacts to the m
 #### Event Test
 
 The following example conducts event tests in the **Event Test** section.
+
+### Demo
+
+{% embed url="https://demos.lowcoder.cloud/demo/WtS5m4F_GPcJsUpRLfwRI" %}
 
 ## Permissions
 

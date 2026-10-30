@@ -10,7 +10,7 @@ import { ThemeHome } from "./theme";
 import { AdvancedSetting } from "./advanced/AdvancedSetting";
 import { currentOrgAdmin } from "util/permissionUtils";
 import { trans } from "i18n";
-import { TwoColumnSettingPageContent } from "./styled";
+import { Level1SettingPageContent, Level1SettingPageTitle, SubscriptionPageContent, TwoColumnSettingPageContent } from "./styled";
 import SubSideBar from "components/layout/SubSideBar";
 import {
   Menu,
@@ -26,8 +26,6 @@ import {
   BrandingIcon,
 } from "lowcoder-design";
 import { getUser } from "redux/selectors/usersSelectors";
-import { getDeploymentId } from "@lowcoder-ee/redux/selectors/configSelectors";
-import { selectSystemConfig } from "redux/selectors/configSelectors";
 import { selectIsLicenseActive } from "redux/selectors/enterpriseSelectors";
 
 import FreeLimitTag from "pages/common/freeLimitTag";
@@ -38,7 +36,10 @@ import { AuditLog } from "@lowcoder-ee/pages/setting/audit";
 import { IdSourceHome } from "@lowcoder-ee/pages/setting/idSource";
 import { Subscription } from "./subscriptions";
 import history from "util/history";
-import { HubspotModal } from "./hubspotModal";
+import { LicenseRequestModal } from "./licenseRequestModal";
+import { EnterpriseLicenses } from "./subscriptions/EnterpriseLicenses";
+import { EnterpriseEditionInfo } from "./EnterpriseEditionInfo";
+import { isPublicLowcoderCloud } from "util/enterpriseHosting";
 
 enum SettingPageEnum {
   Organization = "organization",
@@ -51,13 +52,13 @@ enum SettingPageEnum {
   AuditLog = "audit",
   Branding = "branding",
   Subscription = "subscription",
+  Enterprise = "enterprise",
 }
 
 export function SettingHome() {
   const user = useSelector(getUser);
-  const config = useSelector(selectSystemConfig);
   const isLicenseActive = useSelector(selectIsLicenseActive);
-  const deploymentId = useSelector(getDeploymentId); // Single deploymentId
+  const isPublicCloud = isPublicLowcoderCloud();
   const selectKey = useParams<{ setting: string }>().setting || SettingPageEnum.UserGroups;
 
   const [hubspotVisible, setHubspotVisible] = useState(false);
@@ -92,7 +93,7 @@ export function SettingHome() {
     {
       key: SettingPageEnum.Environments,
       label: (
-        <span>
+        <span className="settings-nav-label">
           <span className="text">{trans("settings.environments")}</span>
           {!isLicenseActive && <FreeLimitTag text={trans("settings.premium")} />}
         </span>
@@ -103,7 +104,7 @@ export function SettingHome() {
     {
       key: SettingPageEnum.AppUsage,
       label: (
-        <span>
+        <span className="settings-nav-label">
           <span className="text">{trans("settings.appUsage")}</span>
           {!isLicenseActive && <FreeLimitTag text={trans("settings.premium")} />}
         </span>
@@ -114,7 +115,7 @@ export function SettingHome() {
     {
       key: SettingPageEnum.AuditLog,
       label: (
-        <span>
+        <span className="settings-nav-label">
           <span className="text">{trans("settings.audit")}</span>
           {!isLicenseActive && <FreeLimitTag text={trans("settings.premium")} />}
         </span>
@@ -125,7 +126,7 @@ export function SettingHome() {
     {
       key: SettingPageEnum.Branding,
       label: (
-        <span>
+        <span className="settings-nav-label">
           <span className="text">{trans("settings.branding")}</span>
           {!isLicenseActive && <FreeLimitTag text={trans("settings.premium")} />}
         </span>
@@ -160,8 +161,16 @@ export function SettingHome() {
             items={items}
           />
 
-          {!isLicenseActive && (
-            <Card style={{ marginTop: "40px", color: "#aaa" }}>
+          {isPublicCloud ? (
+            <Card>
+              <div style={{ marginBottom: 12 }}>{trans("enterprise.selfHosted.sidebarNotice")}</div>
+              <Button onClick={() => history.push("/setting/enterprise")}
+                style={{ height: "auto", whiteSpace: "normal" }}>
+                {trans("enterprise.selfHosted.about")}
+              </Button>
+            </Card>
+          ) : !isLicenseActive && currentOrgAdmin(user) && (
+            <Card>
               <div style={{ marginBottom: 12 }}>
                 {trans("enterprise.premiumFeaturesNotice")}
               </div>
@@ -203,15 +212,18 @@ export function SettingHome() {
         {selectKey === SettingPageEnum.AppUsage && <AppUsage />}
         {selectKey === SettingPageEnum.AuditLog && <AuditLog />}
         {selectKey === SettingPageEnum.Branding && <Branding />}
-        {selectKey === SettingPageEnum.Subscription && <Subscription />}
+        {selectKey === SettingPageEnum.Subscription && <SubscriptionPageContent><Subscription /><EnterpriseLicenses /></SubscriptionPageContent>}
+        {selectKey === SettingPageEnum.Enterprise && <Level1SettingPageContent style={{ minWidth: 0 }}>
+          <Level1SettingPageTitle>{trans("enterprise.selfHosted.title")}</Level1SettingPageTitle>
+          <EnterpriseEditionInfo />
+        </Level1SettingPageContent>}
       </TwoColumnSettingPageContent>
 
-      <HubspotModal
+      {!isPublicCloud && <LicenseRequestModal
         open={hubspotVisible}
         onClose={() => setHubspotVisible(false)}
         orgId={user.currentOrgId}
-        deploymentIds={[deploymentId]} // Pass current single ID as array
-      />
+      />}
     </>
   );
 }

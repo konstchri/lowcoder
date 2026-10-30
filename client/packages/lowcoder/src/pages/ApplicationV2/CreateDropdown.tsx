@@ -68,10 +68,14 @@ const CreateMenuItem = styled.div`
 `;
 
 const CreateBtn = styled(TacoButton)`
-  width: 96px;
-  height: 32px;
-  padding: 0;
-  margin-left: 12px;
+  width: auto;
+  min-width: 100px;
+  height: 36px;
+  padding: 0 16px;
+  margin-left: 0;
+  border-radius: 10px;
+  && { background: #8050a0; border-color: #8050a0; color: white; }
+  &&:hover { background: #683e86; border-color: #683e86; }
 
   & > svg {
     width: 16px;
@@ -206,7 +210,7 @@ export const CreateDropdown = (props: { defaultVisible?: boolean; mode: HomeLayo
 
     if (
       type === HomeResTypeEnum.Folder &&
-      !(mode === "view" || mode === "module" || mode === "folders")
+      !(mode === "view" || mode === "module" || mode === "folder" || mode === "folders")
     ) {
       return null;
     }

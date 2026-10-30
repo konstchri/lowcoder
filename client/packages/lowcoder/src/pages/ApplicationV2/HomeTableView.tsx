@@ -44,13 +44,13 @@ const SubColumnCell = styled.div`
 `;
 
 const EditBtn = styled(TacoButton)`
-  opacity: 0;
+  opacity: 1;
   width: 52px;
   height: 24px;
 `;
 
-export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, modify?: boolean, mode?: string }) => {
-  const {setModify, modify, resources, mode} = props
+export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, modify?: boolean, mode?: string, parentPath?: string, parentLabel?: string }) => {
+  const {setModify, modify, resources, mode, parentPath, parentLabel} = props
   const dispatch = useDispatch();
   const { folderId } = useParams<{ folderId: string }>();
 
@@ -61,26 +61,24 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
   const [currentRes, setCurrentRes] = useState<HomeRes | undefined>(undefined);
 
   const back: HomeRes = {
-    key: "",
-      id: "",
-      name: ". . .",
+    key: "__parent_folder__",
+      id: "__parent_folder__",
+      name: parentLabel || "..",
       type: 4,
       creator: "",
       lastModifyTime: 0,
       isManageable: false,
       isDeletable: false
   }
-  if (mode === "folder"){
-    resources.unshift(back)
-  }
+  const tableResources = mode === "folder" ? [back, ...resources] : resources;
 
   const handleModalOk = (values: any) => {
     if (currentRes) {
-      currentRes.type === HomeResTypeEnum.Folder &&
-        dispatch(updateFolder({ id: currentRes.id, name: values.appName || currentRes.name }))
-      dispatch(
-        updateAppMetaAction({ applicationId: currentRes.id, name: values.appName || currentRes.name, folderId: folderId })
-      );
+      if (currentRes.type === HomeResTypeEnum.Folder) {
+        dispatch(updateFolder({ id: currentRes.id, name: values.appName || currentRes.name }));
+      } else {
+        dispatch(updateAppMetaAction({ applicationId: currentRes.id, name: values.appName || currentRes.name, folderId }));
+      }
       
       setUpdateModalVisible(false);
       setTimeout(() => {
@@ -106,14 +104,20 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
       />}
 
       <Table
-        style={{ padding: "0 24px 60px", color: "#8B8FA3" }}
+        style={{ padding: "8px 16px 16px" }}
         tableLayout={"auto"}
-        scroll={{ x: "100%" }}
+        scroll={{ x: 900 }}
         pagination={false}
         onRow={(record) => ({
+          tabIndex: 0,
+          onKeyDown: (event) => {
+            if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault(); event.currentTarget.click();
+            }
+          },
           onClick: (e) => {
-            if (mode === "folder" && (record as HomeRes).type === 4){
-              backFolderViewClick()
+            if ((record as HomeRes).id === back.id) {
+              backFolderViewClick(parentPath)
             } else{
               const item = record as HomeRes;
               if (needRenameRes?.id === item.id || needDuplicateRes?.id === item.id) {
@@ -122,7 +126,7 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
               if (item.type === HomeResTypeEnum.Folder) {
                 handleFolderViewClick(item.id);
               } else if(item.isMarketplace) {
-                handleMarketplaceAppViewClick(item.id);
+                handleMarketplaceAppViewClick(item.id, item.isLocalMarketplace);
               } else {
                 item.isEditable ? handleAppEditClick(e, item.id) : handleAppViewClick(item.id);
               }
@@ -184,7 +188,7 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
             },
             render: (_, record) => (
               <SubColumnCell>
-                { mode === "folder" && (record as HomeRes).type === 4  ?  "" : HomeResInfo[(record as any).type as HomeResTypeEnum].name }
+                {(record as HomeRes).id === back.id ? "" : HomeResInfo[(record as any).type as HomeResTypeEnum].name}
               </SubColumnCell>
             ),
           },
@@ -192,12 +196,7 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
             title: trans("home.creator"),
             dataIndex: "creator",
             ellipsis: true,
-            sorter: (a: any, b: any) => {
-              if (a.creator === b.creator) {
-                return 0;
-              }
-              return a.type > b.type ? 1 : -1;
-            },
+            sorter: (a: any, b: any) => (a.creator ?? "").localeCompare(b.creator ?? ""),
             render: (text) => <SubColumnCell>{text}</SubColumnCell>,
           },
           {
@@ -205,12 +204,7 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
             dataIndex: "description",
             ellipsis: true,
             width: "250px",
-            sorter: (a: any, b: any) => {
-              if (a.creator === b.creator) {
-                return 0;
-              }
-              return a.type > b.type ? 1 : -1;
-            },
+            sorter: (a: any, b: any) => (a.description ?? "").localeCompare(b.description ?? ""),
             render: (text) => <SubColumnCell>{text}</SubColumnCell>,
           },
           {
@@ -233,7 +227,8 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
           {
             title: " ",
             dataIndex: "operation",
-            width: "298px",
+            fixed: "right",
+            width: "180px",
             render: (text, record) => {
               const item = record as HomeRes;
               return (
@@ -256,10 +251,10 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
                       return item.type === HomeResTypeEnum.Folder
                         ? handleFolderViewClick(item.id)
                         : item.isMarketplace
-                        ? handleMarketplaceAppViewClick(item.id)
+                        ? handleMarketplaceAppViewClick(item.id, item.isLocalMarketplace)
                         : handleAppViewClick(item.id);
                     }}
-                    style={{ marginRight: "52px", display: mode === "folder" && (record as HomeRes).type === 4 ? "none" : "block" }}
+                    style={{ marginRight: "12px", display: item.id === back.id ? "none" : "block" }}
                   >
                     {trans("view")}
                   </EditBtn>
@@ -276,7 +271,7 @@ export const HomeTableView = (props: { resources: HomeRes[], setModify?: any, mo
             },
           },
         ]}
-        dataSource={resources}
+        dataSource={tableResources}
       />
       <MoveToFolderModal source={needMoveRes} onClose={() => setNeedMoveRes(undefined)} setModify={setModify} modify={modify!} />
     </>

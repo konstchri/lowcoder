@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { AdminPageHeader } from "components/layout/adminTheme";
+import { useAdminPagination } from "components/layout/useAdminPagination";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { fetchDatasource, fetchDataSourceTypes } from "../../redux/reduxActions/datasourceActions";
 import { useDispatch, useSelector } from "react-redux";
 import { getUser } from "../../redux/selectors/usersSelectors";
@@ -51,10 +53,19 @@ import { isEmpty } from "lodash";
 import { getVersionOptions } from "@lowcoder-ee/util/versionOptions";
 import { VersionDataForm } from "../common/versionDataForm";
 import { processCurlData } from "../../util/curlUtils";
+import { createEditorStore, EditorStoreProvider } from "../../comps/editorStore";
 
 const Wrapper = styled.div`
   display: flex;
-  height: 100%;
+  height: calc(100% - 120px);
+  min-height: 480px;
+  margin: 0 24px 24px;
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  background: white;
+  overflow: hidden;
+  @media (max-width: 1000px) { flex-direction: column; height: auto; min-height: 650px; }
+  @media (max-width: 720px) { margin: 0 16px 24px; }
 `;
 
 const RightContent = styled.div`
@@ -62,12 +73,8 @@ const RightContent = styled.div`
   display: flex;
   flex-grow: 1;
   position: relative;
+  @media (max-width: 1000px) { flex: 0 0 600px; height: 600px; overflow: auto; }
 `;
-
-interface ElementsState {
-  elements: LibraryQuery[];
-  total: number;
-}
 
 function transformData(input: LibraryQuery[]) {
   const output: any = {};
@@ -79,6 +86,8 @@ function transformData(input: LibraryQuery[]) {
 
 export const QueryLibraryEditor = () => {
   const dispatch = useDispatch();
+  // Query-library editor components render outside RootView, so they need their own store scope.
+  const [editorStore] = useState(createEditorStore);
   const queryLibraryRecords = useSelector(getQueryLibraryRecords);
   const originDatasourceInfo = useSelector(getDataSource);
   const currentUser = useSelector(getUser);
@@ -91,10 +100,7 @@ export const QueryLibraryEditor = () => {
   const [publishModalVisible, setPublishModalVisible] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [isDataSourceReady, setIsDataSourceReady] = useState(false);
-  const [elements, setElements] = useState<ElementsState>({ elements: [], total: 0 });
   const [queryLibrary, setQueryLibrary] = useState<any>({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [searchValues, setSearchValues] = useState("");
   const [modify, setModify] = useState(false);
 
@@ -121,38 +127,33 @@ export const QueryLibraryEditor = () => {
   const [comp, container] = useCompInstance(params);
   useSaveQueryLibrary(libraryQuery, comp);
 
-  useEffect(() => {
-        try {
-            fetchQLPaginationByOrg(
-                {
-                    name: searchValues,
-                    pageNum: currentPage,
-                    pageSize: pageSize,
-                }
-            ).then(result => {
-                if (result.success){
-                    setElements({elements: result.data || [], total: result.total || 1})
-                    setQueryLibrary(transformData(result.data || []));
-                }
-            });
-        } catch (error) {
-            console.error(error)
-        }
-  }, [currentPage, pageSize, searchValues, modify])
-
-    useEffect( () => {
-            if (searchValues !== "")
-                setCurrentPage(1);
-        }, [searchValues]
-    );
+  const loadPage = useCallback((page: number, size: number) => fetchQLPaginationByOrg({
+    name: searchValues, pageNum: page, pageSize: size,
+  }), [searchValues, modify]);
+  const pagination = useAdminPagination<LibraryQuery>({ scope: orgId, filterKey: searchValues, loadPage });
+  const { currentPage, pageSize, setCurrentPage, setPageSize } = pagination;
+  const elements = pagination;
 
   useEffect(() => {
+    setQueryLibrary({});
+    setSelectedQuery(forwardQueryId ?? "");
+    setShowHistory(false);
+    setIsDataSourceReady(false);
+  }, [orgId]);
+
+  useEffect(() => {
+    if (!pagination.loading && !pagination.error) setQueryLibrary(transformData(pagination.elements));
+  }, [pagination.elements, pagination.loading, pagination.error]);
+
+  useEffect(() => {
+    let active = true;
     if (orgId) {
       dispatch(fetchDataSourceTypes({ organizationId: orgId }));
       dispatch(
         fetchDatasource({
           organizationId: orgId,
           onSuccess: (dataSources) => {
+            if (!active) return;
             dataSources.forEach((di) => {
               const dataSource = di.datasource;
               if (dataSource.pluginDefinition) {
@@ -168,14 +169,14 @@ export const QueryLibraryEditor = () => {
         })
       );
     }
+    return () => { active = false; };
   }, [dispatch, orgId]);
 
   useEffect(() => {
-    if (!forwardQueryId && !queryLibrary[selectedQuery]) {
-      // @ts-ignore
-        setSelectedQuery(Object.values(queryLibrary)?.[0]?.id);
+    if (!forwardQueryId) {
+      setSelectedQuery(previous => queryLibrary[previous] ? previous : (Object.values(queryLibrary) as LibraryQuery[])[0]?.id ?? "");
     }
-  }, [dispatch, Object.keys(queryLibrary).length]);
+  }, [queryLibrary, forwardQueryId]);
 
   useEffect(() => {
     Object.values(selectedRecords).length === 0 &&
@@ -243,7 +244,7 @@ export const QueryLibraryEditor = () => {
           setTimeout(() => {
             setModify(!modify);
           }, 200);
-          setCurrentPage(Math.ceil(elements.total / pageSize));
+          setCurrentPage(Math.max(1, Math.ceil((elements.total + 1) / pageSize)));
         },
         () => {}
       )
@@ -252,10 +253,16 @@ export const QueryLibraryEditor = () => {
   };
 
   return (
-    <>
+    <EditorStoreProvider store={editorStore}>
       <Helmet>{<title>{trans("home.queryLibrary")}</title>}</Helmet>
-        <Wrapper>
+      <AdminPageHeader style={{ padding: "28px 24px 0" }}>
+        <div><h1>{trans("home.queryLibrary")}</h1><p>{trans("admin.queriesDescription")}</p></div>
+      </AdminPageHeader>
+      <Wrapper>
         <LeftNav
+          loading={pagination.loading}
+          error={pagination.error}
+          onRetry={pagination.retry}
           selectedQuery={isCreatePanelShow ? undefined : selectedQuery}
           queryList={Object.values(queryLibrary)}
           addQuery={() => showCreatePanel(true)}
@@ -307,7 +314,7 @@ export const QueryLibraryEditor = () => {
                   setTimeout(() => {
                     setModify(!modify);
                   }, 200);
-                  setCurrentPage(Math.ceil(elements.total / pageSize));
+                  setCurrentPage(Math.max(1, Math.ceil((elements.total + 1) / pageSize)));
                 },
               })} />
           )}
@@ -318,7 +325,7 @@ export const QueryLibraryEditor = () => {
           onClose={() => setPublishModalVisible(false)}
           latestVersion={Object.values(selectedRecords)?.[0]?.tag} />
       </Wrapper>
-    </>
+    </EditorStoreProvider>
   );
 };
 
